@@ -104,7 +104,7 @@ function formatDistance(distance: number): string {
     <div v-if="!pictureId" class="loading">
       <div class="multiplayer-info">
         <AppButton>Joueurs: {{ multiplayer.players.length }}</AppButton>
-        <AppButton>Round {{ roundStore.round }} / 5</AppButton>
+        <AppButton>Round {{ roundStore.round }} / {{ multiplayer.totalRounds }}</AppButton>
       </div>
       <div class="title">Chargement...</div>
     </div>
@@ -112,7 +112,7 @@ function formatDistance(distance: number): string {
       <div class="row-top">
         <div class="multiplayer-info">
           <AppButton>Joueurs: {{ multiplayer.players.length }}</AppButton>
-          <AppButton>Round {{ roundStore.round }} / 5</AppButton>
+          <AppButton>Round {{ roundStore.round }} / {{ multiplayer.totalRounds }}</AppButton>
         </div>
         <div class="vol_button">
           <Icon v-if="musicStore.isPlaying" @click="updateMusic()" name="tabler:volume"/>
@@ -144,6 +144,14 @@ function formatDistance(distance: number): string {
         <div class="waiting-title">
           Round terminé, prochain round dans quelques instants...
         </div>
+        <div v-if="multiplayer.eliminatedPlayerId" class="elimination-banner">
+  <template v-if="multiplayer.eliminatedPlayerId === multiplayer.playerId">
+    💀 Vous avez été éliminé !
+  </template>
+  <template v-else>
+    ❌ {{ players.find(p => p.id === multiplayer.eliminatedPlayerId)?.username }} est éliminé
+  </template>
+</div>
           <div class="round-scores" v-if="multiplayer.roundScores.length">
     <div v-for="rs in sortedRoundScores" :key="rs.playerId" class="round-score-item">
       <span class="rs-player">
@@ -283,5 +291,13 @@ function formatDistance(distance: number): string {
     font-family: "Mahoda", sans-serif;
     font-size: 1.25rem;
   }
+}
+  const players = computed(() => multiplayer.players);
+
+.elimination-banner {
+  font-family: "Neo Extra", sans-serif;
+  font-size: 1.2rem;
+  color: #ff6b6b;
+  margin-bottom: 1rem;
 }
 </style>
