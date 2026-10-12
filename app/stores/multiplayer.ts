@@ -47,8 +47,8 @@ export const useMultiplayer = defineStore('multiplayer', {
         loading: false,
         error: null,
             mode: 'classic',
-    totalRounds: null;
-    eliminatedPlayerId: null;
+    totalRounds: null,
+    eliminatedPlayerId: null,
 
     }),
     actions: {
