@@ -46,6 +46,9 @@ export const useMultiplayer = defineStore('multiplayer', {
         guesses: [],
         loading: false,
         error: null,
+            mode: 'classic',
+    totalRounds: null;
+    eliminatedPlayerId: null;
 
     }),
     actions: {
