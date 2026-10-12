@@ -145,11 +145,7 @@ case 'joined':
                     this.error = data.message
                     break
 
-                case 'joined':
-                    this.gameId = data.gameId
-                    this.playerId = data.playerId
-                    this.players = data.players
-                    break
+               
 
                 case 'gameFinished':
     roundStore.reset();
