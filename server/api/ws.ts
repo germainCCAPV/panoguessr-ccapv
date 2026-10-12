@@ -151,7 +151,7 @@ async function handleGuess(peer: Peer, gameId: string, playerId: string, guessPo
 
     if (allPlayersGuessed) {
         try {
-            // Scores du round (code de roundScores déjà en place)
+            // Scores du round (même barème que le solo)
             const pointsForDistance = (d: number) => Math.round(5000 * Math.exp(-d / 6000));
             const roundScores = game.guesses[game.currentRound].map(guess => {
                 const real = game.realPositions[game.currentRound];
@@ -169,7 +169,6 @@ async function handleGuess(peer: Peer, gameId: string, playerId: string, guessPo
             let eliminatedId: string | null = null;
 
             if (game.mode === 'elimination') {
-                // Le plus loin est éliminé
                 const worst = [...roundScores].sort((a, b) => b.distance - a.distance)[0];
                 eliminatedId = worst.playerId;
                 game.activePlayers = game.activePlayers.filter(p => p.id !== eliminatedId);
@@ -185,7 +184,7 @@ async function handleGuess(peer: Peer, gameId: string, playerId: string, guessPo
                 guesses: game.guesses[game.currentRound],
                 realPosition: game.realPositions[game.currentRound],
                 roundScores,
-                eliminatedId,                     // ← null en classic
+                eliminatedId,
                 isFinished
             });
             peer.send(roundCompletePayload);
@@ -200,13 +199,26 @@ async function handleGuess(peer: Peer, gameId: string, playerId: string, guessPo
                     const finishedPayload = JSON.stringify({ action: 'gameFinished', gameId });
                     peer.send(finishedPayload);
                     peer.publish(`game:${gameId}`, finishedPayload);
-                }, 10000); // 10 s pour admirer le dernier round
+                }, 10000);
                 return;
             }
 
             const nextLocation = game.locations[game.currentRound];
-            setTimeout(() => { /* votre nextLocation existant */ }, 7000);
-        } catch (error) { /* ... */ }
+            setTimeout(() => {
+                const nextPayload = JSON.stringify({
+                    action: 'nextLocation',
+                    locationId: nextLocation
+                });
+                peer.send(nextPayload);
+                peer.publish(`game:${gameId}`, nextPayload);
+            }, 7000);
+        } catch (error) {
+            console.error('Error handling round completion:', error);
+            peer.publish(`game:${gameId}`, JSON.stringify({
+                action: 'error',
+                message: 'Failed to proceed to next round'
+            }));
+        }
     }
 
 function handleDisconnect(peer: Peer) {
