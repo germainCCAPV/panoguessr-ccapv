@@ -154,20 +154,16 @@ case 'joined':
             }
         },
 
-        async createGame(username: string) {
-            this.ws?.send(JSON.stringify({ action: 'create', username, mode: mode }))
-            this.loading = true
-            try {
-                await this.ws?.send(JSON.stringify({
-                    action: 'create',
-                    username
-                }))
-            } catch (error) {
-                this.error = 'Failed to create game'
-            } finally {
-                this.loading = false
-            }
-        },
+async createGame(username: string, mode: 'classic' | 'elimination' = 'classic') {
+    this.loading = true
+    try {
+        this.ws?.send(JSON.stringify({ action: 'create', username, mode }))
+    } catch (error) {
+        this.error = 'Failed to create game'
+    } finally {
+        this.loading = false
+    }
+}
 
         async getScores(gameId: string) {
             this.loading = true
