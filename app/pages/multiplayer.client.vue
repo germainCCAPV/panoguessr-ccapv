@@ -97,6 +97,7 @@ function formatDistance(distance: number): string {
   }
   return `${distance.toLocaleString('fr-FR')} m`;
 }
+  const players = computed(() => multiplayer.players);
 </script>
 
 <template>
@@ -292,7 +293,6 @@ function formatDistance(distance: number): string {
     font-size: 1.25rem;
   }
 }
-  const players = computed(() => multiplayer.players);
 
 .elimination-banner {
   font-family: "Neo Extra", sans-serif;
