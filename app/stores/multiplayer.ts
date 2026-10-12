@@ -30,6 +30,9 @@ export interface MultiplayerStore {
     roundScores: RoundScore[];      // ← nouveau
     loading: boolean;
     error: string | null;
+    mode: 'classic' | 'elimination';
+    totalRounds: number;
+    eliminatedPlayerId: string | null;
 }
 
 export const useMultiplayer = defineStore('multiplayer', {
@@ -104,12 +107,13 @@ case 'joined':
                     break
 
                 case 'gameStarted':
-                    this.currentLocationId = data.locationId
-                    this.guesses = []
-
-                    router.push('/multiplayer');
-
-                    break
+    this.currentLocationId = data.locationId
+    this.mode = data.mode || 'classic'
+    this.totalRounds = data.totalRounds || 5
+    this.guesses = []
+    this.eliminatedPlayerId = null
+    router.push('/multiplayer');
+    break
 
                 case 'nextLocation':
                     this.currentLocationId = data.locationId;
@@ -130,6 +134,7 @@ case 'joined':
     this.realLocation = data.realPosition
     this.guesses = data.guesses || [];
     this.roundScores = data.roundScores || [];
+    this.eliminatedPlayerId = data.eliminatedId || null;
     break;
 
                 case 'newGuess':
@@ -145,10 +150,16 @@ case 'joined':
                     this.playerId = data.playerId
                     this.players = data.players
                     break
+
+                case 'gameFinished':
+    roundStore.reset();
+    router.push(`/scoreboard/${this.gameId}`);
+    break;
             }
         },
 
         async createGame(username: string) {
+            this.ws?.send(JSON.stringify({ action: 'create', username, mode: mode }))
             this.loading = true
             try {
                 await this.ws?.send(JSON.stringify({
