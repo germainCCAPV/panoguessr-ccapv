@@ -11,22 +11,29 @@ function createPlayerId(): string {
     return Math.random().toString(36).substring(2, 10);
 }
 
-async function handleCreateGame(peer: Peer, username: string) {
+async function handleCreateGame(peer: Peer, username: string, mode: GameMode = 'classic') {
     const gameId = createGameId();
     const playerId = createPlayerId();
     const player = { id: playerId, username };
 
     try {
-        const pictures = (await getPanoramaxPictureIDs(5));
+        // Pool large : jusqu'à 20 joueurs possibles en élimination
+        const nbLocations = mode === 'elimination' ? 19 : 5;
+        const pictures = await getPanoramaxPictureIDs(nbLocations);
         const game: Game = {
             id: gameId,
             status: 'waiting',
+            mode,
             players: [player],
+            activePlayers: [player],
+            eliminations: [],
             locations: pictures.map(p => p.id),
+            totalRounds: 5,
             currentRound: 0,
             guesses: {},
             realPositions: pictures.map(p => p.position)
         };
+        // ... le reste inchangé
 
         gameState.setGame(gameId, game);
         peer.subscribe(`game:${gameId}`);
@@ -58,7 +65,8 @@ function handleJoinGame(peer: Peer, gameId: string, username: string) {
 
     const playerId = createPlayerId();
     const player = { id: playerId, username };
-    game.players.push(player);
+        game.players.push(player);
+    game.activePlayers.push(player);
 
     peer.send(JSON.stringify({
         action: 'joined',
@@ -80,21 +88,36 @@ function handleStartGame(peer: Peer, gameId: string) {
     const game = gameState.getGame(gameId);
     if (!game || game.status !== 'waiting') return;
 
+    if (game.mode === 'elimination') {
+        if (game.players.length < 2) {
+            peer.send(JSON.stringify({ action: 'error', message: 'Il faut au moins 2 joueurs pour ce mode' }));
+            return;
+        }
+        game.totalRounds = game.players.length - 1;
+    }
+
     game.status = 'active';
     gameState.setGame(gameId, game);
 
     peer.send(JSON.stringify({
         action: 'gameStarted',
-        locationId: game.locations[0]
+        locationId: game.locations[0],
+        mode: game.mode,
+        totalRounds: game.totalRounds
     }));
 
     peer.publish(`game:${gameId}`, JSON.stringify({
         action: 'gameStarted',
-        locationId: game.locations[0]
+        locationId: game.locations[0],
+        mode: game.mode,
+        totalRounds: game.totalRounds
     }));
 }
 
 async function handleGuess(peer: Peer, gameId: string, playerId: string, guessPosition: { lat: number; lng: number }) {
+    // Ignorer les guesses des joueurs éliminés
+    const isActive = game.activePlayers.some(p => p.id === playerId);
+    if (!isActive) return;
     const game = gameState.getGame(gameId);
     if (!game || game.status !== 'active') return;
 
@@ -123,65 +146,68 @@ async function handleGuess(peer: Peer, gameId: string, playerId: string, guessPo
         guess
     }));
 
-    const allPlayersGuessed = game.players.length === game.guesses[game.currentRound].length;
+    
+        const allPlayersGuessed = game.activePlayers.length === game.guesses[game.currentRound].length;
 
     if (allPlayersGuessed) {
         try {
-            const nextLocation = game.locations[game.currentRound + 1];
+            // Scores du round (code de roundScores déjà en place)
+            const pointsForDistance = (d: number) => Math.round(5000 * Math.exp(-d / 6000));
+            const roundScores = game.guesses[game.currentRound].map(guess => {
+                const real = game.realPositions[game.currentRound];
+                const distance = haversineDistance(
+                    { lat: guess.position.lat, lng: guess.position.lng },
+                    real
+                );
+                return {
+                    playerId: guess.playerId,
+                    distance: Math.round(distance),
+                    points: Number.isFinite(distance) ? pointsForDistance(distance) : 0
+                };
+            });
 
-        // Score de chaque guess du round (même barème que le solo)
-        const pointsForDistance = (d: number) => Math.round(5000 * Math.exp(-d / 6000));
-        const roundScores = game.guesses[game.currentRound].map(guess => {
-            const real = game.realPositions[game.currentRound];
-            const distance = haversineDistance(
-                { lat: guess.position.lat, lng: guess.position.lng },
-                real
-            );
-            return {
-                playerId: guess.playerId,
-                distance: Math.round(distance),
-                points: Number.isFinite(distance) ? pointsForDistance(distance) : 0
-            };
-        });
+            let eliminatedId: string | null = null;
 
-        peer.send(JSON.stringify({
-            action: 'roundComplete',
-            guesses: game.guesses[game.currentRound],
-            realPosition: game.realPositions[game.currentRound],
-            roundScores            // ← nouveau
-        }));
+            if (game.mode === 'elimination') {
+                // Le plus loin est éliminé
+                const worst = [...roundScores].sort((a, b) => b.distance - a.distance)[0];
+                eliminatedId = worst.playerId;
+                game.activePlayers = game.activePlayers.filter(p => p.id !== eliminatedId);
+                game.eliminations.push({ playerId: eliminatedId, round: game.currentRound + 1 });
+            }
 
-        peer.publish(`game:${gameId}`, JSON.stringify({
-            action: 'roundComplete',
-            guesses: game.guesses[game.currentRound],
-            realPosition: game.realPositions[game.currentRound],
-            roundScores            // ← nouveau
-        }));
+            const isFinished = game.mode === 'elimination'
+                ? game.activePlayers.length <= 1
+                : game.currentRound + 1 >= game.totalRounds;
+
+            const roundCompletePayload = JSON.stringify({
+                action: 'roundComplete',
+                guesses: game.guesses[game.currentRound],
+                realPosition: game.realPositions[game.currentRound],
+                roundScores,
+                eliminatedId,                     // ← null en classic
+                isFinished
+            });
+            peer.send(roundCompletePayload);
+            peer.publish(`game:${gameId}`, roundCompletePayload);
 
             game.currentRound++;
 
-            setTimeout(() => {
-                peer.send(JSON.stringify({
-                    action: 'nextLocation',
-                    locationId: nextLocation
-                }));
+            if (isFinished) {
+                game.status = 'finished';
+                gameState.setGame(gameId, game);
+                setTimeout(() => {
+                    const finishedPayload = JSON.stringify({ action: 'gameFinished', gameId });
+                    peer.send(finishedPayload);
+                    peer.publish(`game:${gameId}`, finishedPayload);
+                }, 10000); // 10 s pour admirer le dernier round
+                return;
+            }
 
-                peer.publish(`game:${gameId}`, JSON.stringify({
-                    action: 'nextLocation',
-                    locationId: nextLocation
-                }));
-            }, 7000);
-        } catch (error) {
-            console.error('Error handling round completion:', error);
-            peer.publish(`game:${gameId}`, JSON.stringify({
-                action: 'error',
-                message: 'Failed to proceed to next round'
-            }));
-        }
+            const nextLocation = game.locations[game.currentRound];
+            setTimeout(() => { /* votre nextLocation existant */ }, 7000);
+        } catch (error) { /* ... */ }
     }
-
-    gameState.setGame(gameId, game);
-}
 
 function handleDisconnect(peer: Peer) {
     const games = gameState.getAllGames();
@@ -204,8 +230,8 @@ export default defineWebSocketHandler({
 
             switch (data.action) {
                 case 'create':
-                    handleCreateGame(peer, data.username);
-                    break;
+    handleCreateGame(peer, data.username, data.mode === 'elimination' ? 'elimination' : 'classic');
+    break;
                 case 'join':
                     handleJoinGame(peer, data.gameId, data.username);
                     break;
@@ -249,5 +275,9 @@ export default defineWebSocketHandler({
     },
     close(peer) {
         handleDisconnect(peer);
+                game.players = game.players.filter(...);
+        game.activePlayers = game.activePlayers.filter(player =>
+          peer.id !== `game:${gameId}:${player.id}`
+        );
     }
 });
