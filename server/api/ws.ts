@@ -1,6 +1,6 @@
 import {Peer} from "crossws";
 import {haversineDistance} from "~~/server/api/end-game.post";
-import {gameState, Game, Guess} from "~~/server/utils/gameState";
+import { gameState, Game, Guess, GameMode } from "~~/server/utils/gameState";
 import { getPanoramaxPictureIDs } from "~/utils/panoramax";
 
 function createGameId(): string {
@@ -33,7 +33,6 @@ async function handleCreateGame(peer: Peer, username: string, mode: GameMode = '
             guesses: {},
             realPositions: pictures.map(p => p.position)
         };
-        // ... le reste inchangé
 
         gameState.setGame(gameId, game);
         peer.subscribe(`game:${gameId}`);
@@ -242,8 +241,8 @@ export default defineWebSocketHandler({
 
             switch (data.action) {
                 case 'create':
-    handleCreateGame(peer, data.username, data.mode === 'elimination' ? 'elimination' : 'classic');
-    break;
+                    handleCreateGame(peer, data.username, data.mode === 'elimination' ? 'elimination' : 'classic');
+                    break;
                 case 'join':
                     handleJoinGame(peer, data.gameId, data.username);
                     break;
@@ -257,39 +256,23 @@ export default defineWebSocketHandler({
                     const game = gameState.getGame(data.gameId);
                     if (game) {
                         const scores = gameState.calculateScores(data.gameId, haversineDistance);
-                        peer.send(JSON.stringify({
-                            action: 'scores',
-                            scores
-                        }));
+                        peer.send(JSON.stringify({ action: 'scores', scores }));
                     } else {
-                        peer.send(JSON.stringify({
-                            action: 'error',
-                            message: 'Game not found'
-                        }));
+                        peer.send(JSON.stringify({ action: 'error', message: 'Game not found' }));
                     }
                     break;
                 case 'ping':
                     peer.send(JSON.stringify({ action: 'pong' }));
                     break;
                 default:
-                    peer.send(JSON.stringify({
-                        action: 'error',
-                        message: 'Invalid action'
-                    }));
+                    peer.send(JSON.stringify({ action: 'error', message: 'Invalid action' }));
             }
         } catch (error) {
             console.error('Message handler error:', error);
-            peer.send(JSON.stringify({
-                action: 'error',
-                message: 'Invalid message format'
-            }));
+            peer.send(JSON.stringify({ action: 'error', message: 'Invalid message format' }));
         }
     },
     close(peer) {
         handleDisconnect(peer);
-                game.players = game.players.filter(...);
-        game.activePlayers = game.activePlayers.filter(player =>
-          peer.id !== `game:${gameId}:${player.id}`
-        );
     }
 });
