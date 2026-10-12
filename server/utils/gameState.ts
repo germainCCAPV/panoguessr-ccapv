@@ -13,21 +13,20 @@ export type Player = {
   username: string;
 };
 
+export type GameMode = 'classic' | 'elimination';
+
 export type Game = {
   id: string;
   status: 'waiting' | 'active' | 'finished';
+  mode: GameMode;                          // ← nouveau
   players: Player[];
-  guesses: {
-    [round: number]: Guess[];
-  };
+  activePlayers: Player[];                 // ← joueurs encore en jeu
+  eliminations: { playerId: string; round: number }[];  // ordre d'élimination
+  guesses: { [round: number]: Guess[] };
   locations: string[];
+  totalRounds: number;                     // ← dynamique au lieu de 5 fixe
   currentRound: number;
-  realPositions: {
-    [round: number]: {
-      lat: number;
-      lng: number;
-    };
-  };
+  realPositions: { [round: number]: { lat: number; lng: number } };
 };
 
 // La map des jeux
@@ -65,9 +64,24 @@ export const gameState = {
   /**
    * Calcule les scores pour un jeu
    */
-calculateScores(gameId: string, haversineDistance: (p1: GeoPoint, p2: GeoPoint) => number): Array<{position: number, player: string, score: number}> {
+calculateScores(gameId: string, haversineDistance: (p1: GeoPoint, p2: GeoPoint) => number) {
   const game = games.get(gameId);
   if (!game) return [];
+
+  if (game.mode === 'elimination') {
+    // Classement = ordre d'élimination inversé, le survivant gagne
+    const ranking: Array<{position: number, player: string, score: number}> = [];
+    const total = game.eliminations.length;
+    game.eliminations.forEach((elim, index) => {
+      const player = game.players.find(p => p.id === elim.playerId);
+      if (player) {
+        ranking.push({ position: total - index, player: player.username, score: 0 });
+      }
+    });
+    const winner = game.activePlayers[0];
+    if (winner) ranking.push({ position: 1, player: winner.username, score: 0 });
+    return ranking;
+  }
 
   // Points par round, même règle que le solo
   const pointsForDistance = (d: number) =>
