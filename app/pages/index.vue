@@ -36,15 +36,6 @@ function openMultiplayerMenu() {
   pseudoInputOpened.value = false;
 }
 
-async function joinGame() {
-  if (pseudo.value && joinGameId.value) {
-    multiplayer.joinGame(joinGameId.value, pseudo.value);
-  } else {
-    multiplayerMenuWaiting.value = true;
-    multiplayer.createGame(pseudo.value);
-  }
-  multiplayerMenu.value = false;
-}
 
 function openPseudoInput() {
   multiplayerMenuCodeOpened.value = false;
@@ -78,17 +69,7 @@ function startGame() {
         <AppButton @click="joinGame">Jouez !</AppButton>
       </div>
     </template>
-    <template #body class="join-container" v-if="pseudoInputOpened">
-  <input v-model="pseudo" placeholder="Entrez votre pseudo" class="game-code-input" />
-  <div class="mode-choice">
-    <label><input type="radio" value="classic" v-model="gameMode" /> Classique (5 rounds)</label>
-    <label><input type="radio" value="elimination" v-model="gameMode" /> Élimination</label>
-  </div>
-  <div class="inline_btn">
-    <AppButton @click="backToMenu">Retour</AppButton>
-    <AppButton @click="joinGame">Jouez !</AppButton>
-  </div>
-</template>
+   
     <template #body class="join-container" v-if="multiplayerMenuCodeOpened">
       <input v-model="joinGameId" placeholder="Entrez un code de partie" class="game-code-input" />
       <div class="inline_btn">
