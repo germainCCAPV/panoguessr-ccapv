@@ -23,6 +23,30 @@ const picturePosition =
 const loaderReady =
   ref<boolean>(false);
 
+/**
+ * Instant where the picture became visible: the countdown and
+ * the time penalty both start from here.
+ */
+const roundStartedAt =
+  ref<number | null>(null);
+
+function onPictureReady() {
+  loaderReady.value = true;
+
+  if (roundStartedAt.value === null) {
+    roundStartedAt.value = Date.now();
+  }
+}
+
+/** Seconds spent on the round (0 if the picture never displayed). */
+function getElapsedSeconds(): number {
+  if (roundStartedAt.value === null) {
+    return 0;
+  }
+
+  return Math.floor((Date.now() - roundStartedAt.value) / 1000);
+}
+
 
 const router =
   useRouter();
@@ -127,6 +151,10 @@ async function onValidate(
     Math.round(distance)
   );
 
+  positionStore.setElapsedSeconds(
+    getElapsedSeconds()
+  );
+
 
   // Go to result page.
   await router.push('/result');
@@ -189,6 +217,10 @@ async function timeOutValidation() {
 
   positionStore.setDistance(
     Math.round(distance)
+  );
+
+  positionStore.setElapsedSeconds(
+    getElapsedSeconds()
   );
 
 
@@ -275,7 +307,7 @@ function updateMusic() {
 
       <MapViewer
         :picture-id="pictureId"
-        @picready="() => loaderReady = true"
+        @picready="onPictureReady"
       />
 
 

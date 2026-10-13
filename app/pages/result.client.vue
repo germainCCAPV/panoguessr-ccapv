@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { useRouter } from "vue-router";
 import { computed } from 'vue';
-import {useRoundStore, MAX_ROUNDS, MAX_POINTS_PER_ROUND} from "~/stores/round";
+import { useRoundStore, MAX_ROUNDS } from "~/stores/round";
+import { computeRoundScore, MAX_POINTS_PER_ROUND } from "~/utils/scoring";
 
 const router = useRouter();
 
@@ -11,13 +12,13 @@ const startPosition = computed(() => positionStore.startPosition);
 const endPosition = computed(() => positionStore.endPosition);
 const distanceMeters = computed(() => positionStore.distance);
 const noGuess = computed(() => endPosition.value.lat === 0 && endPosition.value.lng === 0);
-//const points = noGuess.value ? 0 : Math.round(5000 * Math.pow(0.9999925, distanceMeters.value));
-
-const MAX_DISTANCE = 150_000; // 150 km en mètres : au-delà, 0 point
-
-const points = noGuess.value || distanceMeters.value >= MAX_DISTANCE
-  ? 0
-  : Math.round(MAX_POINTS_PER_ROUND * Math.exp(-distanceMeters.value / 6000));
+// Règle de score commune au solo et au multijoueur (voir app/utils/scoring.ts).
+const elapsedSeconds = positionStore.elapsedSeconds;
+const { timePenalty, points } = computeRoundScore(
+  distanceMeters.value,
+  elapsedSeconds,
+  !noGuess.value
+);
 roundStore.setRoundScore(points);
 
 const isLastRound = computed(() => roundStore.round >= MAX_ROUNDS);
@@ -46,6 +47,11 @@ function formatDistance(distance: number): string {
   return `${distance.toLocaleString('fr-FR')} m`;
 }
 const formattedDistance = computed(() => formatDistance(distanceMeters.value));
+const formattedElapsed = computed(() => {
+  const minutes = Math.floor(elapsedSeconds / 60);
+  const seconds = elapsedSeconds % 60;
+  return minutes > 0 ? `${minutes} min ${seconds.toString().padStart(2, '0')} s` : `${seconds} s`;
+});
 
 </script>
 
@@ -58,6 +64,10 @@ const formattedDistance = computed(() => formatDistance(distanceMeters.value));
       </div>
       <h4 v-if="!noGuess" class="distance">Distance : {{ formattedDistance }}</h4>
       <h4 v-if="noGuess" class="distance">Temps écoulé !</h4>
+      <h4 v-if="!noGuess" class="distance">
+        Temps : {{ formattedElapsed }}
+        <template v-if="timePenalty > 0">(malus : −{{ formatPoints(timePenalty) }} points)</template>
+      </h4>
       <MapResult :start-position="startPosition" :end-position="endPosition" />
       <div v-if="isLastRound" class="final">
         <h2 class="final_title">Partie terminée !</h2>

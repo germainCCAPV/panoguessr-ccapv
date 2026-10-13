@@ -6,6 +6,18 @@ export type Guess = {
     lat: number;
     lng: number;
   };
+  /** false si le joueur n'a pas cliqué (temps écoulé) */
+  hasGuess: boolean;
+  /** Distance au vrai lieu, en mètres. */
+  distance: number;
+  /** Temps retenu pour la manche, en secondes. */
+  elapsedSeconds: number;
+  /** Points gagnés grâce à la proximité. */
+  distancePoints: number;
+  /** Points perdus à cause du temps. */
+  timePenalty: number;
+  /** Score de la manche (distancePoints - timePenalty). */
+  points: number;
 };
 
 export type Player = {
@@ -26,6 +38,8 @@ export type Game = {
   locations: string[];
   totalRounds: number;                     // ← dynamique au lieu de 5 fixe
   currentRound: number;
+  /** Instant (ms) où la manche en cours a démarré côté serveur. */
+  roundStartedAt?: number;
   realPositions: { [round: number]: { lat: number; lng: number } };
 };
 
@@ -69,44 +83,63 @@ calculateScores(gameId: string, haversineDistance: (p1: GeoPoint, p2: GeoPoint) 
   if (!game) return [];
 
   if (game.mode === 'elimination') {
-    // Classement = ordre d'élimination inversé, le survivant gagne
-    const ranking: Array<{position: number, player: string, score: number}> = [];
-    const total = game.eliminations.length;
-    game.eliminations.forEach((elim, index) => {
+    // Classement = le survivant gagne, puis les joueurs dans l'ordre inverse
+    // de leur élimination (le dernier éliminé est 2e, le premier éliminé est dernier).
+    // Pas de points dans ce mode : on affiche un libellé à la place.
+    const ranking: Array<{position: number, player: string, score: number, label: string}> = [];
+
+    const winner = game.activePlayers[0];
+    if (winner) {
+      ranking.push({ position: 1, player: winner.username, score: 0, label: 'Vainqueur' });
+    }
+
+    [...game.eliminations].reverse().forEach((elim, index) => {
       const player = game.players.find(p => p.id === elim.playerId);
       if (player) {
-        ranking.push({ position: total - index, player: player.username, score: 0 });
+        ranking.push({
+          position: index + 2,
+          player: player.username,
+          score: 0,
+          label: `Éliminé manche ${elim.round}`
+        });
       }
     });
-    const winner = game.activePlayers[0];
-    if (winner) ranking.push({ position: 1, player: winner.username, score: 0 });
+
     return ranking;
   }
 
-  // Points par round, même règle que le solo
-  const pointsForDistance = (d: number) =>
-    Math.round(5000 * Math.exp(-d / 6000));
+  // Mode classique : somme des points de chaque manche.
+  // Chaque score est calculé à l'arrivée du clic (voir handleGuess dans ws.ts,
+  // règle dans app/utils/scoring.ts). Une manche sans clic vaut 0 point.
+  const totals = new Map<string, number>(game.players.map(p => [p.id, 0]));
 
-  const rawScores = Object.entries(game.guesses).reduce((acc, [round, roundGuesses]) => {
+  Object.values(game.guesses).forEach(roundGuesses => {
     roundGuesses.forEach(guess => {
-      const player = game.players.find(p => p.id === guess.playerId);
-      if (player && game.realPositions[parseInt(round)]) {
-        const distance = haversineDistance(
-          { lat: guess.position.lat, lng: guess.position.lng },
-          game.realPositions[parseInt(round)]
-        );
-        const points = Number.isFinite(distance) ? pointsForDistance(distance) : 0;
-        acc[player.username] = (acc[player.username] || 0) + points;
+      if (totals.has(guess.playerId)) {
+        totals.set(guess.playerId, (totals.get(guess.playerId) ?? 0) + (guess.points ?? 0));
       }
     });
-    return acc;
-  }, {} as { [key: string]: number });
+  });
 
-  const scoreArray = Object.entries(rawScores)
-    .map(([player, score]) => ({ player, score, position: 0 }))
+  const scoreArray = game.players
+    .map(player => ({ player: player.username, score: totals.get(player.id) ?? 0, position: 0 }))
     .sort((a, b) => b.score - a.score); // tri DÉCROISSANT : plus de points = mieux
 
   scoreArray.forEach((item, index) => { item.position = index + 1; });
   return scoreArray;
+},
+
+/**
+ * Total cumulé d'un joueur jusqu'à la manche donnée (incluse).
+ */
+totalUntilRound(game: Game, playerId: string, round: number): number {
+  let total = 0;
+
+  for (let r = 0; r <= round; r++) {
+    const guess = (game.guesses[r] ?? []).find(g => g.playerId === playerId);
+    total += guess?.points ?? 0;
+  }
+
+  return total;
 }
 };

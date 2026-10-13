@@ -10,13 +10,22 @@ export interface Guess {
     playerId: string
     latitude: number
     longitude: number
+    // Temps passé sur la manche (secondes), mesuré depuis l'affichage de la photo.
+    elapsedSeconds?: number
     distance?: number
     score?: number
 }
+
+// Score d'un joueur pour la manche qui vient de se terminer (calculé par le serveur).
 export interface RoundScore {
     playerId: string;
-    distance: number;
-    points: number;
+    hasGuess: boolean;         // false si le temps est écoulé sans clic
+    distance: number;          // mètres
+    elapsedSeconds: number;    // temps retenu
+    distancePoints: number;    // points de proximité
+    timePenalty: number;       // points perdus à cause du temps
+    points: number;            // score de la manche
+    total: number;             // total cumulé depuis la manche 1
 }
 
 export interface MultiplayerStore {
@@ -33,6 +42,7 @@ export interface MultiplayerStore {
     mode: 'classic' | 'elimination';
     totalRounds: number;
     eliminatedPlayerId: string | null;
+    eliminatedIds: string[];        // tous les joueurs déjà éliminés
 }
 
 export const useMultiplayer = defineStore('multiplayer', {
@@ -44,11 +54,13 @@ export const useMultiplayer = defineStore('multiplayer', {
         currentLocationId: null,
         realLocation: null,
         guesses: [],
+        roundScores: [],
         loading: false,
         error: null,
             mode: 'classic',
     totalRounds: null,
     eliminatedPlayerId: null,
+    eliminatedIds: [],
 
     }),
     actions: {
@@ -114,7 +126,9 @@ case 'joined':
     this.mode = data.mode || 'classic'
     this.totalRounds = data.totalRounds || 5
     this.guesses = []
+    this.roundScores = []
     this.eliminatedPlayerId = null
+    this.eliminatedIds = []
     router.push('/multiplayer');
     break
 
@@ -138,6 +152,9 @@ case 'joined':
     this.guesses = data.guesses || [];
     this.roundScores = data.roundScores || [];
     this.eliminatedPlayerId = data.eliminatedId || null;
+    if (data.eliminatedId && !this.eliminatedIds.includes(data.eliminatedId)) {
+        this.eliminatedIds.push(data.eliminatedId);
+    }
     break;
 
                 case 'newGuess':
@@ -210,13 +227,14 @@ async createGame(username: string, mode: 'classic' | 'elimination' = 'classic') 
             }
         },
 
-        submitGuess(latitude: number, longitude: number) {
+        submitGuess(latitude: number, longitude: number, elapsedSeconds: number = 0) {
             if (!this.gameId) return
 
             const guess: Guess = {
                 playerId: this.playerId, // .find(p => p.id)?.id ?? '',
                 latitude,
-                longitude
+                longitude,
+                elapsedSeconds
             }
 
             try {
@@ -236,6 +254,7 @@ async createGame(username: string, mode: 'classic' | 'elimination' = 'classic') 
             this.players = []
             this.currentLocationId = null
             this.guesses = []
+            this.roundScores = []
             this.error = null
         }
     }

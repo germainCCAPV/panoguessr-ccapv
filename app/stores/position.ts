@@ -5,6 +5,7 @@ export const usePositionStore = defineStore('position', {
         startPosition: { lat: 0, lng: 0 },
         endPosition: { lat: 0, lng: 0 },
         distance: 0,
+        elapsedSeconds: 0,
     }),
     actions: {
         setStartPosition(lat: number, lng: number) {
@@ -15,6 +16,9 @@ export const usePositionStore = defineStore('position', {
         },
         setDistance(dist: number) {
             this.distance = dist;
+        },
+        setElapsedSeconds(seconds: number) {
+            this.elapsedSeconds = seconds;
         },
     },
 })

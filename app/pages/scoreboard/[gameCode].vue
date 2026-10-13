@@ -120,7 +120,7 @@ onMounted(() => {
                      { 'second-place': score.position === 2 },
                      { 'third-place': score.position === 3 },
                      { 'revealed': index <= revealIndex }]">
-          <AppScore :position="score.position" :pseudo="score.player" :points="score.score" />
+          <AppScore :position="score.position" :pseudo="score.player" :points="score.score" :label="score.label" />
           <div class="trophy" v-if="score.position === 1">
             <img :src="`/images/trophy.svg`" alt="Trophy"
                  class="trophy-icon" :class="`trophy-${score.position}`" />

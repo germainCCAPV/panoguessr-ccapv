@@ -2,6 +2,7 @@ import {Peer} from "crossws";
 import {haversineDistance} from "~~/server/api/end-game.post";
 import { gameState, Game, Guess, GameMode } from "~~/server/utils/gameState";
 import { getPanoramaxPictureIDs } from "~/utils/panoramax";
+import { computeRoundScore, resolveElapsedSeconds } from "~/utils/scoring";
 
 function createGameId(): string {
     return Math.random().toString(36).substring(2, 6).toUpperCase();
@@ -96,6 +97,7 @@ function handleStartGame(peer: Peer, gameId: string) {
     }
 
     game.status = 'active';
+    game.roundStartedAt = Date.now();
     gameState.setGame(gameId, game);
 
     peer.send(JSON.stringify({
@@ -113,12 +115,18 @@ function handleStartGame(peer: Peer, gameId: string) {
     }));
 }
 
-async function handleGuess(peer: Peer, gameId: string, playerId: string, guessPosition: { lat: number; lng: number }) {
+async function handleGuess(
+    peer: Peer,
+    gameId: string,
+    playerId: string,
+    guessPosition: { latitude: number; longitude: number; elapsedSeconds?: number }
+) {
+    const game = gameState.getGame(gameId);
+    if (!game || game.status !== 'active') return;
+
     // Ignorer les guesses des joueurs éliminés
     const isActive = game.activePlayers.some(p => p.id === playerId);
     if (!isActive) return;
-    const game = gameState.getGame(gameId);
-    if (!game || game.status !== 'active') return;
 
     if (!game.guesses[game.currentRound]) {
         game.guesses[game.currentRound] = [];
@@ -129,41 +137,62 @@ async function handleGuess(peer: Peer, gameId: string, playerId: string, guessPo
         return;
     }
 
+    const position = {
+        lat: guessPosition.latitude,
+        lng: guessPosition.longitude
+    };
+
+    // Un clic en (0, 0) est envoyé quand le temps est écoulé : aucun point.
+    const hasGuess = !(position.lat === 0 && position.lng === 0);
+
+    const distance = haversineDistance(position, game.realPositions[game.currentRound]);
+
+    // Temps retenu : celui annoncé par le navigateur, borné par l'horloge du serveur.
+    const serverElapsedSeconds = game.roundStartedAt
+        ? (Date.now() - game.roundStartedAt) / 1000
+        : 0;
+    const elapsedSeconds = resolveElapsedSeconds(
+        guessPosition.elapsedSeconds,
+        serverElapsedSeconds
+    );
+
+    const score = computeRoundScore(distance, elapsedSeconds, hasGuess);
+
     const guess: Guess = {
         playerId,
-               position: {
-            lat: guessPosition.latitude,
-            lng: guessPosition.longitude
-        }
+        position,
+        hasGuess,
+        distance: Number.isFinite(distance) ? Math.round(distance) : 0,
+        elapsedSeconds,
+        distancePoints: score.distancePoints,
+        timePenalty: score.timePenalty,
+        points: score.points
     };
 
     game.guesses[game.currentRound].push(guess);
 
+    // Les autres joueurs voient le clic, mais pas le score avant la fin de la manche.
     peer.publish(`game:${gameId}`, JSON.stringify({
         action: 'newGuess',
         playerId,
-        guess
+        guess: { playerId, position }
     }));
 
-    
-        const allPlayersGuessed = game.activePlayers.length === game.guesses[game.currentRound].length;
+    const allPlayersGuessed = game.activePlayers.length === game.guesses[game.currentRound].length;
 
     if (allPlayersGuessed) {
         try {
-            // Scores du round (même barème que le solo)
-            const pointsForDistance = (d: number) => Math.round(5000 * Math.exp(-d / 6000));
-            const roundScores = game.guesses[game.currentRound].map(guess => {
-                const real = game.realPositions[game.currentRound];
-                const distance = haversineDistance(
-                    { lat: guess.position.lat, lng: guess.position.lng },
-                    real
-                );
-                return {
-                    playerId: guess.playerId,
-                    distance: Math.round(distance),
-                    points: Number.isFinite(distance) ? pointsForDistance(distance) : 0
-                };
-            });
+            // Score de chaque joueur pour cette manche, avec son total cumulé.
+            const roundScores = game.guesses[game.currentRound].map(roundGuess => ({
+                playerId: roundGuess.playerId,
+                hasGuess: roundGuess.hasGuess,
+                distance: roundGuess.distance,
+                elapsedSeconds: roundGuess.elapsedSeconds,
+                distancePoints: roundGuess.distancePoints,
+                timePenalty: roundGuess.timePenalty,
+                points: roundGuess.points,
+                total: gameState.totalUntilRound(game, roundGuess.playerId, game.currentRound)
+            }));
 
             let eliminatedId: string | null = null;
 
@@ -180,7 +209,10 @@ async function handleGuess(peer: Peer, gameId: string, playerId: string, guessPo
 
             const roundCompletePayload = JSON.stringify({
                 action: 'roundComplete',
-                guesses: game.guesses[game.currentRound],
+                guesses: game.guesses[game.currentRound].map(g => ({
+                    playerId: g.playerId,
+                    position: g.position
+                })),
                 realPosition: game.realPositions[game.currentRound],
                 roundScores,
                 eliminatedId,
@@ -204,6 +236,7 @@ async function handleGuess(peer: Peer, gameId: string, playerId: string, guessPo
 
             const nextLocation = game.locations[game.currentRound];
             setTimeout(() => {
+                game.roundStartedAt = Date.now();
                 const nextPayload = JSON.stringify({
                     action: 'nextLocation',
                     locationId: nextLocation

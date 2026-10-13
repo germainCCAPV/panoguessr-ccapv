@@ -2,7 +2,9 @@
 const props = defineProps<{
   pseudo: string,
   position: number,
-  points: number
+  points: number,
+  // Texte affiché à la place des points (ex. « Éliminé manche 2 » en mode élimination)
+  label?: string
 }>()
 
 const formattedNumber = new Intl.NumberFormat('fr-FR', {
@@ -19,7 +21,7 @@ const formattedNumber = new Intl.NumberFormat('fr-FR', {
         <div class="pseudo">{{position}}. {{ pseudo }}</div>
       </div>
       <div class="right">
-        <div class="points">{{ formattedNumber }}</div>
+        <div class="points">{{ label ?? formattedNumber }}</div>
       </div>
     </div>
   </div>

@@ -1,7 +1,6 @@
 import { defineStore } from 'pinia'
 
 export const MAX_ROUNDS = 5;
-export const MAX_POINTS_PER_ROUND = 5000;
 
 export const useRoundStore = defineStore('round', {
     state: () => ({

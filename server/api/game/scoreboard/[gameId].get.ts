@@ -6,6 +6,7 @@ type ScoreboardResponse = {
     position: number;
     player: string;
     score: number;
+    label?: string;
   }>;
 };
 
