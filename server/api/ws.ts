@@ -220,6 +220,9 @@ async function handleGuess(peer: Peer, gameId: string, playerId: string, guessPo
         }
     }
 
+    gameState.setGame(gameId, game);
+}
+
 function handleDisconnect(peer: Peer) {
     const games = gameState.getAllGames();
     games.forEach((game, gameId) => {
