@@ -1,3 +1,4 @@
+
 <script lang="ts" setup>
 import Modal from "~/components/app/Modal.vue";
 
@@ -12,23 +13,20 @@ const pseudoInputOpened = ref<boolean>(false);
 
 const joinGameId = ref<string>("");
 const pseudo = ref<string>("");
-
 const gameMode = ref<"classic" | "elimination">("classic");
+const isJoiningGame = ref<boolean>(false);
 
+onMounted(() => {
+  multiplayer.initializeWebSocket();
+});
 
-const isJoiningGame = ref(false);
-
-async function joinGame() {
-  if (!pseudo.value.trim()) return;
-
-  if (isJoiningGame.value) {
-    if (!joinGameId.value.trim()) return;
-    multiplayer.joinGame(joinGameId.value.trim(), pseudo.value.trim());
-  } else {
-    multiplayer.createGame(pseudo.value.trim(), gameMode.value);
-  }
-
-  multiplayerMenu.value = false;
+function openMultiplayerMenu() {
+  multiplayerMenu.value = true;
+  multiplayerMenuOpened.value = true;
+  multiplayerMenuCodeOpened.value = false;
+  multiplayerMenuWaiting.value = false;
+  pseudoInputOpened.value = false;
+  isJoiningGame.value = false;
 }
 
 function openPseudoInput(joining = false) {
@@ -36,10 +34,6 @@ function openPseudoInput(joining = false) {
   multiplayerMenuCodeOpened.value = false;
   multiplayerMenuOpened.value = false;
   pseudoInputOpened.value = true;
-
-  if (!joining) {
-    joinGameId.value = "";
-  }
 }
 
 function openCodeInput() {
@@ -49,17 +43,34 @@ function openCodeInput() {
   multiplayerMenuCodeOpened.value = true;
 }
 
-
 function backToMenu() {
   pseudoInputOpened.value = false;
   multiplayerMenuCodeOpened.value = false;
   multiplayerMenuOpened.value = true;
 }
 
+function joinGame() {
+  const username = pseudo.value.trim();
+
+  if (!username) return;
+
+  if (isJoiningGame.value) {
+    const gameId = joinGameId.value.trim();
+    if (!gameId) return;
+
+    multiplayer.joinGame(gameId, username);
+  } else {
+    multiplayer.createGame(username, gameMode.value);
+  }
+
+  multiplayerMenu.value = false;
+}
+
 function startGame() {
   multiplayer.startGame();
 }
 </script>
+
 <template>
 <Modal :title="pseudoInputOpened ? 'Pseudo' : multiplayerMenuCodeOpened ? 'Code de la partie' : 'Multijoueur'" v-model:isVisible="multiplayerMenu">
     <template #body class="join-container" v-if="pseudoInputOpened">
@@ -87,10 +98,14 @@ function startGame() {
         <AppButton @click="openPseudoInput(true)">Valider</AppButton>
       </div>
     </template>
-    <template #body class="join-container" v-if="multiplayerMenuOpened">
-      <AppButton @click="openPseudoInput(false)">Créer une partie</AppButton>
-      <AppButton @click="openCodeInput">Rejoindre une partie</AppButton>
-    </template>
+    <template #body v-if="multiplayerMenuOpened">
+  <AppButton @click="openPseudoInput(false)">
+    Créer une partie
+  </AppButton>
+  <AppButton @click="openCodeInput">
+    Rejoindre une partie
+  </AppButton>
+</template>
   </Modal>
   <Modal title="Salle d'attente" v-model:isVisible="multiplayerMenuWaiting">
     <template #body class="game-lobby" v-if="multiplayer.gameId">
