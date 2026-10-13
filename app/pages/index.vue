@@ -13,7 +13,7 @@ const pseudoInputOpened = ref<boolean>(false);
 const joinGameId = ref<string>("");
 const pseudo = ref<string>("");
 
-  const gameMode = ref<'classic' | 'elimination'>('classic');
+const gameMode = ref<"classic" | "elimination">("classic");
 
 async function joinGame() {
   if (pseudo.value && joinGameId.value) {
