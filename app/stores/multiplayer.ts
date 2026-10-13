@@ -166,7 +166,7 @@ async createGame(username: string, mode: 'classic' | 'elimination' = 'classic') 
     } finally {
         this.loading = false
     }
-}
+},
 
         async getScores(gameId: string) {
             this.loading = true
