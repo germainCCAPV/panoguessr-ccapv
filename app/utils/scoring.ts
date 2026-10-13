@@ -17,7 +17,7 @@ export const DISTANCE_DECAY_M = 6000;
 
 /** Toutes les X secondes écoulées, le joueur perd TIME_PENALTY_POINTS points. */
 export const TIME_PENALTY_INTERVAL_SECONDS = 20;
-export const TIME_PENALTY_POINTS = 250;
+export const TIME_PENALTY_POINTS = 200;
 
 /** Durée d'une manche. */
 export const ROUND_DURATION_SECONDS = 120;
