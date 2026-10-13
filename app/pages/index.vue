@@ -59,7 +59,7 @@ function startGame() {
   multiplayer.startGame();
 }
 </script>
-
+<template>
 <Modal :title="pseudoInputOpened ? 'Pseudo' : multiplayerMenuCodeOpened ? 'Code de la partie' : 'Multijoueur'" v-model:isVisible="multiplayerMenu">
     <template #body class="join-container" v-if="pseudoInputOpened">
       <input v-model="pseudo" placeholder="Entrez votre pseudo" class="game-code-input" />
