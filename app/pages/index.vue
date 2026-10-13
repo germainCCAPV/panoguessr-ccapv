@@ -15,39 +15,40 @@ const pseudo = ref<string>("");
 
 const gameMode = ref<"classic" | "elimination">("classic");
 
+
+const isJoiningGame = ref(false);
+
 async function joinGame() {
-  if (pseudo.value && joinGameId.value) {
-    multiplayer.joinGame(joinGameId.value, pseudo.value);
+  if (!pseudo.value.trim()) return;
+
+  if (isJoiningGame.value) {
+    if (!joinGameId.value.trim()) return;
+    multiplayer.joinGame(joinGameId.value.trim(), pseudo.value.trim());
   } else {
-    multiplayer.createGame(pseudo.value, gameMode.value);
+    multiplayer.createGame(pseudo.value.trim(), gameMode.value);
   }
+
   multiplayerMenu.value = false;
 }
 
-onMounted(() => {
-  multiplayer.initializeWebSocket();
-})
-
-function openMultiplayerMenu() {
-  multiplayerMenu.value = true;
-  multiplayerMenuOpened.value = true;
-  multiplayerMenuCodeOpened.value = false;
-  multiplayerMenuWaiting.value = false;
-  pseudoInputOpened.value = false;
-}
-
-
-function openPseudoInput() {
+function openPseudoInput(joining = false) {
+  isJoiningGame.value = joining;
   multiplayerMenuCodeOpened.value = false;
   multiplayerMenuOpened.value = false;
   pseudoInputOpened.value = true;
+
+  if (!joining) {
+    joinGameId.value = "";
+  }
 }
 
 function openCodeInput() {
+  isJoiningGame.value = true;
   pseudoInputOpened.value = false;
   multiplayerMenuOpened.value = false;
   multiplayerMenuCodeOpened.value = true;
 }
+
 
 function backToMenu() {
   pseudoInputOpened.value = false;
@@ -63,10 +64,16 @@ function startGame() {
 <Modal :title="pseudoInputOpened ? 'Pseudo' : multiplayerMenuCodeOpened ? 'Code de la partie' : 'Multijoueur'" v-model:isVisible="multiplayerMenu">
     <template #body class="join-container" v-if="pseudoInputOpened">
       <input v-model="pseudo" placeholder="Entrez votre pseudo" class="game-code-input" />
-      <div class="mode-choice">
-        <label><input type="radio" value="classic" v-model="gameMode" /> Classique (5 rounds)</label>
-        <label><input type="radio" value="elimination" v-model="gameMode" /> Élimination</label>
-      </div>
+      <div v-if="!isJoiningGame" class="mode-choice">
+  <label>
+    <input type="radio" value="classic" v-model="gameMode" />
+    Classique (5 rounds)
+  </label>
+  <label>
+    <input type="radio" value="elimination" v-model="gameMode" />
+    Élimination
+  </label>
+</div>
       <div class="inline_btn">
         <AppButton @click="backToMenu">Retour</AppButton>
         <AppButton @click="joinGame">Jouez !</AppButton>
@@ -77,11 +84,11 @@ function startGame() {
       <input v-model="joinGameId" placeholder="Entrez un code de partie" class="game-code-input" />
       <div class="inline_btn">
         <AppButton @click="backToMenu">Retour</AppButton>
-        <AppButton @click="openPseudoInput">Valider</AppButton>
+        <AppButton @click="openPseudoInput(true)">Valider</AppButton>
       </div>
     </template>
     <template #body class="join-container" v-if="multiplayerMenuOpened">
-      <AppButton @click="openPseudoInput">Créer une partie</AppButton>
+      <AppButton @click="openPseudoInput(false)">Créer une partie</AppButton>
       <AppButton @click="openCodeInput">Rejoindre une partie</AppButton>
     </template>
   </Modal>
