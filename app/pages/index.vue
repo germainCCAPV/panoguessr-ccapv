@@ -139,6 +139,21 @@ function startGame() {
 <style scoped lang="scss">
 @use '~/assets/styles/global' as *;
 
+  .mode-choice {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0.5rem 0;
+  font-family: "Neo Regular", sans-serif;
+  color: $white-color;
+
+  label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+}
+  
 .container {
   display: flex;
   flex-direction: column;
