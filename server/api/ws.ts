@@ -243,7 +243,7 @@ async function handleGuess(
                 });
                 peer.send(nextPayload);
                 peer.publish(`game:${gameId}`, nextPayload);
-            }, 7000);
+            }, 12000);
         } catch (error) {
             console.error('Error handling round completion:', error);
             peer.publish(`game:${gameId}`, JSON.stringify({
