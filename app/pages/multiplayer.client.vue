@@ -16,6 +16,8 @@ const musicStore = useMusiqueStore();
 const mapSelect = useTemplateRef('map-select');
 const router = useRouter();
 const loaderReady = ref<boolean>(false);
+const waitingSeconds = ref<number | null>(null);
+let waitingInterval: ReturnType<typeof setInterval> | null = null;
 
 /**
  * Instant où la photo est devenue visible : le chrono de 2 minutes
@@ -40,6 +42,27 @@ function getElapsedSeconds(): number {
   return Math.floor((Date.now() - roundStartedAt.value) / 1000);
 }
 
+/** Décompte affiché après validation : temps restant pour les autres joueurs. */
+function startWaitingCountdown() {
+  if (waitingInterval) clearInterval(waitingInterval);
+
+  waitingSeconds.value = Math.max(0, ROUND_DURATION_SECONDS - getElapsedSeconds());
+
+  waitingInterval = setInterval(() => {
+    if (waitingSeconds.value !== null && waitingSeconds.value > 0) {
+      waitingSeconds.value--;
+    } else if (waitingInterval) {
+      clearInterval(waitingInterval);
+    }
+  }, 1000);
+}
+
+function formatWaitTime(totalSeconds: number): string {
+  const m = Math.floor(totalSeconds / 60);
+  const s = totalSeconds % 60;
+  return `${m}:${s.toString().padStart(2, '0')}`;
+}
+
 watch(() => multiplayer.currentLocationId, (newId) => {
   if (newId) {
     loaderReady.value = false;
@@ -47,6 +70,8 @@ watch(() => multiplayer.currentLocationId, (newId) => {
     hasGuessed.value = false;
     pictureId.value = newId;
     points.value = [];
+    waitingSeconds.value = null;
+    if (waitingInterval) clearInterval(waitingInterval);
   }
 });
 
@@ -57,6 +82,7 @@ function onValidate(position: GeoPoint) {
   }
   multiplayer.submitGuess(position.lat, position.lng, getElapsedSeconds());
   hasGuessed.value = true;
+  startWaitingCountdown();
   mapSelect.value.resetPosition();
 }
 
@@ -67,6 +93,7 @@ function timeOutValidation() {
   }
   multiplayer.submitGuess(0, 0, ROUND_DURATION_SECONDS);
   hasGuessed.value = true;
+  startWaitingCountdown();
   mapSelect.value.resetPosition();
 }
 
@@ -80,6 +107,10 @@ onMounted(() => {
   if(!pictureId.value) {
     router.push('/');
   }
+});
+
+onUnmounted(() => {
+  if (waitingInterval) clearInterval(waitingInterval);
 });
 
 function updateMusic() {
@@ -108,8 +139,8 @@ watch(() => multiplayer.guesses, (newGuesses) => {
 
     newGuesses.forEach((guess: { playerId: string, position: { lat: number, lng: number } }) => {
       points.value.push({
-        lat: guess.position.lat,          // ← corrigé
-        lng: guess.position.lng,          // ← corrigé
+        lat: guess.position.lat,
+        lng: guess.position.lng,
         isTarget: false,
         username: multiplayer.players.find(p => p.id === guess.playerId)?.username,
       });
@@ -162,11 +193,27 @@ function formatDistance(distance: number): string {
           <Icon v-else @click="updateMusic()" name="tabler:volume-off"/>
         </div>
       </div>
-      <AppTimer :start="120" @timeout="timeOutValidation"/>
+      <AppTimer :start="ROUND_DURATION_SECONDS" @timeout="timeOutValidation"/>
     </div>
     <div v-else class="waiting">
       <template v-if="waitingPlayers.length > 1">
         <div class="waiting-title">En attente des autres joueurs...</div>
+
+        <div class="waiting-timer" v-if="waitingSeconds !== null">
+          <div
+            class="waiting-timer-value"
+            :class="{ urgent: waitingSeconds <= 10 && waitingSeconds > 0 }"
+          >
+            {{ formatWaitTime(waitingSeconds) }}
+          </div>
+          <div class="waiting-timer-label" v-if="waitingSeconds > 0">
+            Temps restant pour les autres joueurs
+          </div>
+          <div class="waiting-timer-label" v-else>
+            Temps écoulé ! Clôture de la manche...
+          </div>
+        </div>
+
         <div class="waiting-players">
           <div
               v-for="player in waitingPlayers.filter(p => p.id !== multiplayer.playerId)"
@@ -188,13 +235,13 @@ function formatDistance(distance: number): string {
           Round terminé, prochain round dans quelques instants...
         </div>
         <div v-if="multiplayer.eliminatedPlayerId" class="elimination-banner">
-  <template v-if="multiplayer.eliminatedPlayerId === multiplayer.playerId">
-    💀 Vous avez été éliminé !
-  </template>
-  <template v-else>
-    ❌ {{ players.find(p => p.id === multiplayer.eliminatedPlayerId)?.username }} est éliminé
-  </template>
-</div>
+          <template v-if="multiplayer.eliminatedPlayerId === multiplayer.playerId">
+            💀 Vous avez été éliminé !
+          </template>
+          <template v-else>
+            ❌ {{ players.find(p => p.id === multiplayer.eliminatedPlayerId)?.username }} est éliminé
+          </template>
+        </div>
         <div class="round-scores" v-if="multiplayer.roundScores.length">
           <div class="rs-caption">
             <template v-if="multiplayer.mode === 'elimination'">
@@ -364,7 +411,33 @@ function formatDistance(distance: number): string {
     font-size: 18px;
     opacity: 50%;
     text-align: center;
-    margin-bottom: 2rem;
+    margin-bottom: 1rem;
+  }
+
+  .waiting-timer {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+    margin-bottom: 1rem;
+
+    .waiting-timer-value {
+      font-family: "Neo Extra", sans-serif;
+      font-size: 2.5rem;
+      color: $white-color;
+
+      &.urgent {
+        color: #ff6b6b;
+        animation: pulse-timer 1s infinite;
+      }
+    }
+
+    .waiting-timer-label {
+      font-family: "Neo Regular", sans-serif;
+      font-size: 0.85rem;
+      opacity: 0.6;
+      color: $white-color;
+    }
   }
 
   .waiting-players {
@@ -431,5 +504,10 @@ function formatDistance(distance: number): string {
   font-size: 1.2rem;
   color: #ff6b6b;
   margin-bottom: 1rem;
+}
+
+@keyframes pulse-timer {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.15); }
 }
 </style>
