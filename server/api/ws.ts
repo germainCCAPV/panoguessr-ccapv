@@ -72,7 +72,8 @@ function handleJoinGame(peer: Peer, gameId: string, username: string) {
         action: 'joined',
         gameId,
         playerId,
-        players: game.players
+        players: game.players,
+        lobbyDeadline: game.lobbyDeadline
     }));
 
     peer.subscribe(`game:${gameId}`);
