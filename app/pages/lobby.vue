@@ -7,7 +7,17 @@ const multiplayer = useMultiplayer();
 const isHost = computed(() =>
   multiplayer.players[0]?.id === multiplayer.playerId
 );
+// Compte à rebours de la fenêtre de démarrage
+const remainingSeconds = ref<number | null>(null);
+let countdownInterval: ReturnType<typeof setInterval> | null = null;
 
+function updateCountdown() {
+  if (multiplayer.lobbyDeadline === null || multiplayer.lobbyDeadline <= Date.now()) {
+    remainingSeconds.value = null;
+    return;
+  }
+  remainingSeconds.value = Math.round((multiplayer.lobbyDeadline - Date.now()) / 1000);
+}
 // Pas de partie en cours → retour à l'accueil
 onMounted(() => {
   if (!multiplayer.gameId) {
