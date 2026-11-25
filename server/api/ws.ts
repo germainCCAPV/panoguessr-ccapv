@@ -283,7 +283,7 @@ export default defineWebSocketHandler({
                     handleJoinGame(peer, data.gameId, data.username);
                     break;
                 case 'start':
-                    handleStartGame(peer, data.gameId);
+                    startGameCountdown(peer, data.gameId);
                     break;
                 case 'guess':
                     handleGuess(peer, data.gameId, data.playerId, data.guess);
