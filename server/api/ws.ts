@@ -312,3 +312,36 @@ export default defineWebSocketHandler({
         handleDisconnect(peer);
     }
 });
+function startGameCountdown(peer: Peer, gameId: string) {
+    const delay = 30000; // 30 secondes de grâce
+
+    const game = gameState.getGame(gameId);
+    if (!game || game.status !== 'waiting') return;
+
+    game.lobbyDeadline = Date.now() + delay;
+    gameState.setGame(gameId, game);
+
+    // On prévient tout le monde (hôte inclus) que la partie démarre dans 30 s
+    const countdownPayload = JSON.stringify({
+        action: 'startCountdown',
+        lobbyDeadline: game.lobbyDeadline
+    });
+    peer.send(countdownPayload);
+    peer.publish(`game:${gameId}`, countdownPayload);
+
+    setTimeout(() => {
+        const g = gameState.getGame(gameId);
+        if (!g || g.status !== 'waiting') return;
+
+        // En élimination : Minimum 2 joueurs, sinon on annule et on rend la main à l'hôte
+        if (g.mode === 'elimination' && g.players.length < 2) {
+            peer.send(JSON.stringify({
+                action: 'error',
+                message: 'Il faut au moins 2 joueurs en mode élimination'
+            }));
+            return;
+        }
+
+        handleStartGame(peer, gameId);
+    }, delay);
+}
