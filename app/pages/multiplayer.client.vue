@@ -62,7 +62,29 @@ function formatWaitTime(totalSeconds: number): string {
   const s = totalSeconds % 60;
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
+/** Secondes avant la manche suivante (null = pas de décompte en cours). */
+const nextRoundSeconds = ref<number | null>(null);
+let nextRoundInterval: ReturnType<typeof setInterval> | null = null;
 
+function updateNextRoundCountdown() {
+  if (multiplayer.nextRoundAt === null) {
+    nextRoundSeconds.value = null;
+    return;
+  }
+  nextRoundSeconds.value = Math.max(
+    0,
+    Math.ceil((multiplayer.nextRoundAt - Date.now()) / 1000)
+  );
+}
+
+// Se (re)lance chaque fois que le serveur annonce la fin d'une manche
+watch(() => multiplayer.nextRoundAt, (value) => {
+  if (nextRoundInterval) clearInterval(nextRoundInterval);
+  updateNextRoundCountdown();
+  if (value !== null) {
+    nextRoundInterval = setInterval(updateNextRoundCountdown, 250);
+  }
+}, { immediate: true });
 watch(() => multiplayer.currentLocationId, (newId) => {
   if (newId) {
     loaderReady.value = false;
@@ -111,6 +133,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   if (waitingInterval) clearInterval(waitingInterval);
+  if (nextRoundInterval) clearInterval(nextRoundInterval);   // ← AJOUT
 });
 
 function updateMusic() {
@@ -231,8 +254,15 @@ function formatDistance(distance: number): string {
         En attente des résultats...
       </div>
       <div class="map-overview" v-else>
-        <div class="waiting-title">
-          Round terminé, prochain round dans quelques instants...
+               <div class="waiting-title">
+          {{ multiplayer.isFinalRound ? 'Dernière manche terminée !' : 'Round terminé' }}
+        </div>
+        <div class="next-round-timer" v-if="nextRoundSeconds !== null">
+          <Icon name="tabler:clock" />
+          <span v-if="nextRoundSeconds > 0">
+            {{ multiplayer.isFinalRound ? 'Résultats finaux' : 'Prochain round' }} dans {{ nextRoundSeconds }} s
+          </span>
+          <span v-else>Chargement...</span>
         </div>
         <div v-if="multiplayer.eliminatedPlayerId" class="elimination-banner">
           <template v-if="multiplayer.eliminatedPlayerId === multiplayer.playerId">
@@ -504,6 +534,21 @@ function formatDistance(distance: number): string {
   font-size: 1.2rem;
   color: #ff6b6b;
   margin-bottom: 1rem;
+}
+  .next-round-timer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  width: fit-content;
+  margin: 0.25rem auto 0.75rem;
+  padding: 0.2rem 0.8rem;
+  font-family: "Neo Regular", sans-serif;
+  font-size: 0.85rem;
+  color: $white-color;
+  opacity: 0.7;
+  background: rgba($blue-shade-1, 0.2);
+  border-radius: 999px;
 }
 
 @keyframes pulse-timer {
