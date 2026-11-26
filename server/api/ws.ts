@@ -314,15 +314,26 @@ export default defineWebSocketHandler({
     }
 });
 function startGameCountdown(peer: Peer, gameId: string) {
-    const delay = 30000; // 30 secondes de grâce
+    const delay = 30000; // 30 secondes
 
     const game = gameState.getGame(gameId);
     if (!game || game.status !== 'waiting') return;
 
+    // Empêche un double clic de lancer deux compte à rebours
+    if (game.lobbyDeadline) return;
+
+    // Vérifier AVANT de lancer le compte à rebours
+    if (game.mode === 'elimination' && game.players.length < 2) {
+        peer.send(JSON.stringify({
+            action: 'error',
+            message: 'Il faut au moins 2 joueurs en mode élimination'
+        }));
+        return;
+    }
+
     game.lobbyDeadline = Date.now() + delay;
     gameState.setGame(gameId, game);
 
-    // On prévient tout le monde (hôte inclus) que la partie démarre dans 30 s
     const countdownPayload = JSON.stringify({
         action: 'startCountdown',
         lobbyDeadline: game.lobbyDeadline
@@ -334,12 +345,17 @@ function startGameCountdown(peer: Peer, gameId: string) {
         const g = gameState.getGame(gameId);
         if (!g || g.status !== 'waiting') return;
 
-        // En élimination : Minimum 2 joueurs, sinon on annule et on rend la main à l'hôte
+        // Des joueurs ont pu partir pendant les 30 s
         if (g.mode === 'elimination' && g.players.length < 2) {
-            peer.send(JSON.stringify({
-                action: 'error',
+            g.lobbyDeadline = undefined;
+            gameState.setGame(gameId, g);
+
+            const cancelPayload = JSON.stringify({
+                action: 'countdownCancelled',
                 message: 'Il faut au moins 2 joueurs en mode élimination'
-            }));
+            });
+            peer.send(cancelPayload);
+            peer.publish(`game:${gameId}`, cancelPayload);
             return;
         }
 
