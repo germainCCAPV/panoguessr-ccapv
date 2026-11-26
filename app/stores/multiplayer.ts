@@ -42,7 +42,8 @@ export interface MultiplayerStore {
     mode: 'classic' | 'elimination';
     totalRounds: number;
     eliminatedPlayerId: string | null;
-    eliminatedIds: string[];        // tous les joueurs déjà éliminés
+    eliminatedIds: string[];   
+    lobbyDeadline: number | null;// tous les joueurs déjà éliminés
 }
 
 export const useMultiplayer = defineStore('multiplayer', {
@@ -61,6 +62,7 @@ export const useMultiplayer = defineStore('multiplayer', {
     totalRounds: null,
     eliminatedPlayerId: null,
     eliminatedIds: [],
+        lobbyDeadline: null,
 
     }),
     actions: {
@@ -107,14 +109,24 @@ export const useMultiplayer = defineStore('multiplayer', {
     this.gameId = data.gameId
     this.playerId = data.playerId
     this.players = data.players
-    router.push('/lobby')     // ← nouveau
+    router.push('/lobby')     
+    this.lobbyDeadline = (data.lobbyDeadline && data.lobbyDeadline > Date.now())
+      ? data.lobbyDeadline
+      : null
     break
-
+case 'startCountdown':
+    this.lobbyDeadline = (data.lobbyDeadline && data.lobbyDeadline > Date.now())
+      ? data.lobbyDeadline
+      : null
+    break
 case 'joined':
     this.gameId = data.gameId
     this.playerId = data.playerId
     this.players = data.players
     router.push('/lobby')     // ← nouveau
+                    this.lobbyDeadline = (data.lobbyDeadline && data.lobbyDeadline > Date.now())
+      ? data.lobbyDeadline
+      : null
     break
 
                 case 'playerListUpdated':
@@ -130,6 +142,7 @@ case 'joined':
     this.eliminatedPlayerId = null
     this.eliminatedIds = []
     router.push('/multiplayer');
+    this.lobbyDeadline = null
     break
 
                 case 'nextLocation':
