@@ -40,6 +40,12 @@ onMounted(() => {
           Code de la partie :
           <span class="bold_code">{{ multiplayer.gameId }}</span>
         </div>
+                <div class="lobby-timer" v-if="remainingSeconds !== null">
+          <span class="lobby-timer-value" :class="{ urgent: remainingSeconds <= 10 }">
+            {{ formatCountdown(remainingSeconds) }}
+          </span>
+          <span class="lobby-timer-label">Démarrage de la partie... dernier appel !</span>
+        </div>
 
         <div class="players-list">
           <div class="players_title">Joueurs ({{ multiplayer.players.length }}) :</div>
@@ -62,7 +68,7 @@ onMounted(() => {
         <div v-if="!isHost" class="waiting-text">
           En attente que l'hôte lance la partie...
         </div>
-        <AppButton v-else :disabled="remainingSeconds !== null" @click="multiplayer.startGame()">
+                <AppButton v-else :disabled="remainingSeconds !== null" @click="multiplayer.startGame()">
           Démarrer la partie
         </AppButton>
       </template>
