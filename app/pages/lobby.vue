@@ -39,19 +39,36 @@ onUnmounted(() => {
 
 <template>
   <div class="page">
-    <div class="lobby">
+    <!-- ÉTAT 1 : compte à rebours plein écran (fenêtre de 30 s) -->
+    <div class="countdown-screen" v-if="remainingSeconds !== null">
+      <div class="countdown-title">La partie va commencer !</div>
+      <div
+        class="countdown-value"
+        :class="{
+          urgent: remainingSeconds <= 10 && remainingSeconds > 0,
+          last: remainingSeconds <= 3
+        }"
+      >
+        {{ formatCountdown(remainingSeconds) }}
+      </div>
+      <div class="countdown-label">Préparez-vous... dernier appel pour rejoindre !</div>
+      <div class="countdown-players">
+        <AppAvatar
+          v-for="player in multiplayer.players"
+          :key="player.id"
+          :pseudo="player.username"
+        />
+      </div>
+    </div>
+
+    <!-- ÉTAT 2 : salle d'attente classique (avant le démarrage) -->
+    <div class="lobby" v-else>
       <div class="lobby-title">Salle d'attente</div>
 
       <template v-if="multiplayer.gameId">
         <div class="game-code">
           Code de la partie :
           <span class="bold_code">{{ multiplayer.gameId }}</span>
-        </div>
-                <div class="lobby-timer" v-if="remainingSeconds !== null">
-          <span class="lobby-timer-value" :class="{ urgent: remainingSeconds <= 10 }">
-            {{ formatCountdown(remainingSeconds) }}
-          </span>
-          <span class="lobby-timer-label">Démarrage de la partie... dernier appel !</span>
         </div>
 
         <div class="players-list">
@@ -65,12 +82,10 @@ onUnmounted(() => {
           </ul>
         </div>
 
-        
-
         <div v-if="!isHost" class="waiting-text">
           En attente que l'hôte lance la partie...
         </div>
-                <AppButton v-else :disabled="remainingSeconds !== null" @click="multiplayer.startGame()">
+        <AppButton v-else @click="multiplayer.startGame()">
           Démarrer la partie
         </AppButton>
       </template>
@@ -143,30 +158,56 @@ ul {
   color: $white-color;
   opacity: 0.7;
 }
-  .lobby-timer {
+.countdown-screen {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.25rem;
+  justify-content: center;
+  gap: 1.5rem;
+  width: 100vw;
+  min-height: 100vh;
+  color: $white-color;
+}
 
-  .lobby-timer-value {
-    font-family: "Neo Extra", sans-serif;
-    font-size: 2.5rem;
-    color: $white-color;
+.countdown-title {
+  font-family: "Neo Extra", sans-serif;
+  font-size: 2rem;
+}
 
-    &.urgent { color: #ff6b6b; animation: pulse-timer 1s infinite; }
+.countdown-value {
+  font-family: "Neo Extra", sans-serif;
+  font-size: 6rem;
+  line-height: 1;
+  color: $white-color;
+  text-shadow: 0 0 30px rgba($blue-shade-2, 0.8);
+
+  &.urgent {
+    color: #ffb43a;
   }
 
-  .lobby-timer-label {
-    font-family: "Neo Regular", sans-serif;
-    font-size: 0.85rem;
-    opacity: 0.6;
-    color: $white-color;
+  &.last {
+    color: #ff6b6b;
+    animation: tick-pulse 1s infinite;
   }
 }
 
-@keyframes pulse-timer {
+.countdown-label {
+  font-family: "Neo Regular", sans-serif;
+  font-size: 1rem;
+  opacity: 0.7;
+  text-align: center;
+}
+
+.countdown-players {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+@keyframes tick-pulse {
   0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.15); }
+  50% { transform: scale(1.12); }
 }
 </style>
