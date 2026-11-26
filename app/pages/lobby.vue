@@ -7,34 +7,38 @@ const multiplayer = useMultiplayer();
 const isHost = computed(() =>
   multiplayer.players[0]?.id === multiplayer.playerId
 );
-// Compte à rebours de la fenêtre de démarrage
+
+// null = pas de compte à rebours ; sinon nombre de secondes restantes
 const remainingSeconds = ref<number | null>(null);
 let countdownInterval: ReturnType<typeof setInterval> | null = null;
 
 function updateCountdown() {
-  if (multiplayer.lobbyDeadline === null || multiplayer.lobbyDeadline <= Date.now()) {
+  const deadline = multiplayer.lobbyDeadline;
+  if (deadline === null) {
     remainingSeconds.value = null;
     return;
   }
-  remainingSeconds.value = Math.round((multiplayer.lobbyDeadline - Date.now()) / 1000);
+  // Math.max(0, ...) : on reste à 0 en attendant le message 'gameStarted'
+  // au lieu de repasser sur la salle d'attente
+  remainingSeconds.value = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
 }
-// Pas de partie en cours → retour à l'accueil
+
+// Réagit tout de suite quand le serveur envoie 'startCountdown'
+// (sans attendre le prochain tic de l'intervalle)
+watch(() => multiplayer.lobbyDeadline, updateCountdown, { immediate: true });
+
 onMounted(() => {
   if (!multiplayer.gameId) {
     router.replace('/');
+    return;
   }
-  updateCountdown();                                        // ← AJOUT : état initial
-  countdownInterval = setInterval(updateCountdown, 1000);   // ← AJOUT : tic chaque seconde
+  updateCountdown();
+  countdownInterval = setInterval(updateCountdown, 250);
 });
 
-// Nettoyage du chrono si on quitte la page
 onUnmounted(() => {
   if (countdownInterval) clearInterval(countdownInterval);
 });
-
-// La partie démarre → vers la page de jeu
-// (le store fait déjà router.push('/multiplayer') sur 'gameStarted',
-//  donc il suffit de rester à l'écoute — rien à faire ici)
 </script>
 
 <template>
