@@ -3,7 +3,10 @@ import {haversineDistance} from "~~/server/api/end-game.post";
 import { gameState, Game, Guess, GameMode } from "~~/server/utils/gameState";
 import { getPanoramaxPictureIDs } from "~/utils/panoramax";
 import { computeRoundScore, resolveElapsedSeconds } from "~/utils/scoring";
-
+/** Durée d'affichage du score intermédiaire avant la manche suivante. */
+const NEXT_ROUND_DELAY_MS = 25000; // ← remplacez par la valeur que vous avez choisie
+/** Durée d'affichage du dernier score avant la page de scoreboard. */
+const FINISH_DELAY_MS = 10000;
 function createGameId(): string {
     return Math.random().toString(36).substring(2, 6).toUpperCase();
 }
