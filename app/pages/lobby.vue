@@ -23,6 +23,13 @@ onMounted(() => {
   if (!multiplayer.gameId) {
     router.replace('/');
   }
+  updateCountdown();                                        // ← AJOUT : état initial
+  countdownInterval = setInterval(updateCountdown, 1000);   // ← AJOUT : tic chaque seconde
+});
+
+// Nettoyage du chrono si on quitte la page
+onUnmounted(() => {
+  if (countdownInterval) clearInterval(countdownInterval);
 });
 
 // La partie démarre → vers la page de jeu
@@ -58,12 +65,7 @@ onMounted(() => {
           </ul>
         </div>
 
-        <div class="lobby-timer" v-if="remainingSeconds !== null">
-          <span class="lobby-timer-value" :class="{ urgent: remainingSeconds <= 10 }">
-            {{ formatCountdown(remainingSeconds) }}
-          </span>
-          <span class="lobby-timer-label">Démarrage de la partie... dernier appel !</span>
-        </div>
+        
 
         <div v-if="!isHost" class="waiting-text">
           En attente que l'hôte lance la partie...
