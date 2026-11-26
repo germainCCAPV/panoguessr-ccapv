@@ -44,6 +44,8 @@ export interface MultiplayerStore {
     eliminatedPlayerId: string | null;
     eliminatedIds: string[];   
     lobbyDeadline: number | null;// tous les joueurs déjà éliminés
+      nextRoundAt: number | null;   // instant (ms, horloge du navigateur) du prochain round
+    isFinalRound: boolean;        // vrai quand la manche qui vient de finir était la dernière
 }
 
 export const useMultiplayer = defineStore('multiplayer', {
@@ -63,6 +65,8 @@ export const useMultiplayer = defineStore('multiplayer', {
     eliminatedPlayerId: null,
     eliminatedIds: [],
         lobbyDeadline: null,
+                nextRoundAt: null,
+        isFinalRound: false,
 
     }),
     actions: {
@@ -141,6 +145,8 @@ case 'joined':
     this.roundScores = []
     this.eliminatedPlayerId = null
     this.eliminatedIds = []
+                        this.nextRoundAt = null
+    this.isFinalRound = false
     router.push('/multiplayer');
     this.lobbyDeadline = null
     break
@@ -149,6 +155,7 @@ case 'joined':
                     this.currentLocationId = data.locationId;
     this.guesses = [];
     this.roundScores = [];
+                       this.nextRoundAt = null;
 
                     if (roundStore.round === 5) {
                         roundStore.reset();
@@ -269,6 +276,8 @@ async createGame(username: string, mode: 'classic' | 'elimination' = 'classic') 
             this.guesses = []
             this.roundScores = []
             this.error = null
+                        this.nextRoundAt = null
+            this.isFinalRound = false
         }
     }
 })
