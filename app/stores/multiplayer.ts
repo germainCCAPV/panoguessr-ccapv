@@ -175,6 +175,10 @@ case 'joined':
     if (data.eliminatedId && !this.eliminatedIds.includes(data.eliminatedId)) {
         this.eliminatedIds.push(data.eliminatedId);
     }
+                        this.isFinalRound = !!data.isFinished
+    this.nextRoundAt = data.nextRoundDelayMs
+        ? Date.now() + data.nextRoundDelayMs
+        : null
     break;
 
                 case 'newGuess':
