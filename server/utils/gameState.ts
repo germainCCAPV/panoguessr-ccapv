@@ -38,10 +38,11 @@ export type Game = {
   locations: string[];
   totalRounds: number;                     // ← dynamique au lieu de 5 fixe
   currentRound: number;
+  lobbyDeadline?: number;
   /** Instant (ms) où la manche en cours a démarré côté serveur. */
   roundStartedAt?: number;
   realPositions: { [round: number]: { lat: number; lng: number } };
-  lobbyDeadline?: number;
+  
 };
 
 // La map des jeux
