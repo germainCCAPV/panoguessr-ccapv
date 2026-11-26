@@ -41,6 +41,7 @@ export type Game = {
   /** Instant (ms) où la manche en cours a démarré côté serveur. */
   roundStartedAt?: number;
   realPositions: { [round: number]: { lat: number; lng: number } };
+  lobbyDeadline?: number;
 };
 
 // La map des jeux
