@@ -128,4 +128,30 @@ ul {
   color: $white-color;
   opacity: 0.7;
 }
+  .lobby-timer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+
+  .lobby-timer-value {
+    font-family: "Neo Extra", sans-serif;
+    font-size: 2.5rem;
+    color: $white-color;
+
+    &.urgent { color: #ff6b6b; animation: pulse-timer 1s infinite; }
+  }
+
+  .lobby-timer-label {
+    font-family: "Neo Regular", sans-serif;
+    font-size: 0.85rem;
+    opacity: 0.6;
+    color: $white-color;
+  }
+}
+
+@keyframes pulse-timer {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+}
 </style>
