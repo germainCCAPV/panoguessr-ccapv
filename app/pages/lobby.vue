@@ -53,7 +53,7 @@ onUnmounted(() => {
           last: remainingSeconds <= 3
         }"
       >
-        {{ formatCountdown(remainingSeconds) }}
+         {{ remainingSeconds }}
       </div>
       <div class="countdown-label">Préparez-vous... dernier appel pour rejoindre !</div>
       <div class="countdown-players">
