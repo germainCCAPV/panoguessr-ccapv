@@ -210,8 +210,8 @@ async function handleGuess(
             const isFinished = game.mode === 'elimination'
                 ? game.activePlayers.length <= 1
                 : game.currentRound + 1 >= game.totalRounds;
-
-            const roundCompletePayload = JSON.stringify({
+ const nextRoundDelayMs = isFinished ? FINISH_DELAY_MS : NEXT_ROUND_DELAY_MS;
+                        const roundCompletePayload = JSON.stringify({
                 action: 'roundComplete',
                 guesses: game.guesses[game.currentRound].map(g => ({
                     playerId: g.playerId,
@@ -220,7 +220,8 @@ async function handleGuess(
                 realPosition: game.realPositions[game.currentRound],
                 roundScores,
                 eliminatedId,
-                isFinished
+                isFinished,
+                nextRoundDelayMs   // ← AJOUT
             });
             peer.send(roundCompletePayload);
             peer.publish(`game:${gameId}`, roundCompletePayload);
@@ -234,7 +235,7 @@ async function handleGuess(
                     const finishedPayload = JSON.stringify({ action: 'gameFinished', gameId });
                     peer.send(finishedPayload);
                     peer.publish(`game:${gameId}`, finishedPayload);
-                }, 10000);
+                }, FINISH_DELAY_MS);
                 return;
             }
 
@@ -247,7 +248,7 @@ async function handleGuess(
                 });
                 peer.send(nextPayload);
                 peer.publish(`game:${gameId}`, nextPayload);
-            }, 25000);
+            }, NEXT_ROUND_DELAY_MS);
         } catch (error) {
             console.error('Error handling round completion:', error);
             peer.publish(`game:${gameId}`, JSON.stringify({
